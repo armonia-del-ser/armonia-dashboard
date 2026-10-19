@@ -9,12 +9,14 @@ import {
 	formatDateTime,
 	getHoursRemainingBadge,
 } from "../utils";
+import { showConfirmModal, showPromptModal } from "./MicroModal";
 import { openPaymentModal } from "./PaymentModal";
 import {
 	renderBookingStatusBadge,
 	renderCalendarSyncBadge,
 	renderPaymentStatusBadge,
 } from "./StatusBadge";
+import { showToast } from "./Toast";
 
 export function renderFollowUpQueue(
 	container: HTMLElement,
@@ -176,20 +178,19 @@ export function renderFollowUpQueue(
 					<div class="secondary-actions">
 						<button
 							type="button"
-							class="btn-text btn-authorize-delay"
+							class="btn btn-action-delay btn-authorize-delay"
 							data-booking-id="${b.id}"
 							title="Permitir que el paciente pague al llegar"
 						>
-							Autorizar prórroga
+							<span>⏳ Prórroga</span>
 						</button>
-						<span class="divider">·</span>
 						<button
 							type="button"
-							class="btn-text text-danger btn-release-slot"
+							class="btn btn-action-release btn-release-slot"
 							data-booking-id="${b.id}"
 							title="Liberar el espacio si no hubo respuesta"
 						>
-							Liberar lugar
+							<span>✕ Liberar</span>
 						</button>
 					</div>
 				</div>
@@ -209,7 +210,13 @@ export function renderFollowUpQueue(
 
 				openPaymentModal({
 					booking,
-					onSuccess: () => {
+					onSuccess: (amount: number) => {
+						showToast(
+							`Pago acreditado exitosamente (${formatCurrency(amount)})`,
+							"success",
+							4500,
+							{ folio: booking.booking_code },
+						);
 						loadData();
 						onStateChange();
 					},
@@ -219,47 +226,82 @@ export function renderFollowUpQueue(
 
 		// Authorize delayed payment
 		contentDiv.querySelectorAll(".btn-authorize-delay").forEach((btn) => {
-			btn.addEventListener("click", async () => {
+			btn.addEventListener("click", () => {
 				const id = btn.getAttribute("data-booking-id");
-				if (!id) return;
-				const notes = window.prompt(
-					"Motivo o acuerdo de la prórroga de pago:",
-					"Acordado con el paciente para pago en efectivo antes de la sesión",
-				);
-				if (notes === null) return;
+				const booking = bookings.find((b) => b.id === id);
+				if (!id || !booking) return;
 
-				try {
-					await authorizeDelayedPayment(id, notes);
-					loadData();
-					onStateChange();
-				} catch (err: unknown) {
-					alert(
-						err instanceof Error ? err.message : "Error al autorizar prórroga",
-					);
-				}
+				showPromptModal({
+					title: "Autorizar Prórroga de Pago",
+					kicker: "Excepción Operativa",
+					subtitle:
+						"Permite al consultante conservar su lugar y liquidar en efectivo o SPEI antes de iniciar su sesión.",
+					bookingContext: {
+						bookingCode: booking.booking_code,
+						clientName: booking.client_name,
+						serviceName: booking.service_name,
+						scheduledAtFormatted: formatDateTime(booking.scheduled_at),
+					},
+					label: "Motivo o acuerdo de la prórroga:",
+					defaultValue:
+						"Acordado con el paciente para pago en efectivo antes de la sesión",
+					placeholder:
+						"Ej. Confirmado por Jasmin para pago presencial el día de la cita",
+					confirmText: "Autorizar Prórroga",
+					cancelText: "Cancelar",
+					onConfirm: async (notes: string) => {
+						await authorizeDelayedPayment(id, notes);
+						showToast(
+							"Prórroga autorizada. Estado actualizado a Prórroga Autorizada.",
+							"warning",
+							4500,
+							{ folio: booking.booking_code },
+						);
+						loadData();
+						onStateChange();
+					},
+				});
 			});
 		});
 
 		// Release booking
 		contentDiv.querySelectorAll(".btn-release-slot").forEach((btn) => {
-			btn.addEventListener("click", async () => {
+			btn.addEventListener("click", () => {
 				const id = btn.getAttribute("data-booking-id");
-				if (!id) return;
-				const reason = window.prompt(
-					"¿Deseas liberar este horario para otros clientes? Motivo:",
-					"Sin respuesta a recordatorios de pago dentro de las 48h",
-				);
-				if (reason === null) return;
+				const booking = bookings.find((b) => b.id === id);
+				if (!id || !booking) return;
 
-				try {
-					await releaseBooking(id, reason);
-					loadData();
-					onStateChange();
-				} catch (err: unknown) {
-					alert(
-						err instanceof Error ? err.message : "Error al liberar espacio",
-					);
-				}
+				showConfirmModal({
+					title: "¿Liberar este horario?",
+					kicker: "Liberación de Espacio",
+					message: `¿Deseas liberar este horario para otros clientes? Se cancelará la reservación activa y el horario volverá a estar disponible en el calendario público.`,
+					bookingContext: {
+						bookingCode: booking.booking_code,
+						clientName: booking.client_name,
+						serviceName: booking.service_name,
+						scheduledAtFormatted: formatDateTime(booking.scheduled_at),
+					},
+					withReasonInput: true,
+					reasonLabel: "Motivo de la liberación:",
+					defaultReason:
+						"Sin respuesta a recordatorios de pago dentro de las 48h",
+					reasonPlaceholder:
+						"Describe brevemente por qué se libera el horario...",
+					confirmText: "Sí, liberar espacio",
+					cancelText: "Conservar reservación",
+					isDanger: true,
+					onConfirm: async (reason: string) => {
+						await releaseBooking(id, reason);
+						showToast(
+							"Espacio liberado con éxito. Horario nuevamente disponible.",
+							"info",
+							4500,
+							{ folio: booking.booking_code },
+						);
+						loadData();
+						onStateChange();
+					},
+				});
 			});
 		});
 	};

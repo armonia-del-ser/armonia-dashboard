@@ -14,7 +14,7 @@ export interface PaymentModalOptions {
 
 export function openPaymentModal(options: {
 	booking: Booking;
-	onSuccess: () => void;
+	onSuccess: (amount: number) => void;
 }): void {
 	const { booking, onSuccess } = options;
 
@@ -169,7 +169,7 @@ export function openPaymentModal(options: {
 				notes,
 			});
 			close();
-			onSuccess();
+			onSuccess(amount);
 		} catch (err: unknown) {
 			submitBtn.disabled = false;
 			submitBtn.textContent = "Confirmar Acreditación";

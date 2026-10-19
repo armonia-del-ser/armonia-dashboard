@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
 	calculateInterval,
+	checkBufferCollision,
 	formatCurrency,
+	formatDateInput,
 	getHoursRemainingBadge,
+	isSameDay,
+	isThisWeek,
+	isToday,
+	isTomorrow,
 } from "../src/utils";
 
 describe("Frontend Utilities", () => {
@@ -31,5 +37,69 @@ describe("Frontend Utilities", () => {
 		expect(getHoursRemainingBadge(12).urgencyClass).toBe("badge-danger");
 		expect(getHoursRemainingBadge(36).urgencyClass).toBe("badge-warning");
 		expect(getHoursRemainingBadge(72).urgencyClass).toBe("badge-info");
+	});
+
+	describe("Date Filtering Utilities", () => {
+		const baseDate = new Date("2026-10-20T10:00:00");
+
+		it("correctly identifies same calendar day", () => {
+			const sameDay = new Date("2026-10-20T18:30:00");
+			const diffDay = new Date("2026-10-21T10:00:00");
+			expect(isSameDay(baseDate, sameDay)).toBe(true);
+			expect(isSameDay(baseDate, diffDay)).toBe(false);
+		});
+
+		it("identifies today and tomorrow relative to reference date", () => {
+			const todayAppointment = new Date("2026-10-20T15:00:00");
+			const tomorrowAppointment = new Date("2026-10-21T11:00:00");
+			const nextWeekAppointment = new Date("2026-10-28T11:00:00");
+
+			expect(isToday(todayAppointment, baseDate)).toBe(true);
+			expect(isToday(tomorrowAppointment, baseDate)).toBe(false);
+
+			expect(isTomorrow(tomorrowAppointment, baseDate)).toBe(true);
+			expect(isTomorrow(todayAppointment, baseDate)).toBe(false);
+
+			expect(isThisWeek(todayAppointment, baseDate)).toBe(true);
+			expect(isThisWeek(tomorrowAppointment, baseDate)).toBe(true);
+			expect(isThisWeek(nextWeekAppointment, baseDate)).toBe(false);
+		});
+
+		it("formats date to YYYY-MM-DD input string", () => {
+			const testDate = new Date(2026, 9, 20); // October 20, 2026
+			expect(formatDateInput(testDate)).toBe("2026-10-20");
+		});
+	});
+
+	describe("Collision Detection Utilities", () => {
+		it("detects no collision when next appointment starts after buffer", () => {
+			const startIso = "2026-10-20T10:00:00";
+			const nextStartIso = "2026-10-20T11:15:00"; // Exactly after 60m + 15m buffer
+			const result = checkBufferCollision(startIso, 60, 15, nextStartIso);
+
+			expect(result.hasCollision).toBe(false);
+			expect(result.deficitMinutes).toBe(0);
+		});
+
+		it("detects buffer collision when next appointment invades buffer window", () => {
+			const startIso = "2026-10-20T10:00:00";
+			const nextStartIso = "2026-10-20T11:05:00"; // 5 min into 15m buffer (10 min deficit)
+			const result = checkBufferCollision(startIso, 60, 15, nextStartIso);
+
+			expect(result.hasCollision).toBe(true);
+			expect(result.isBufferCollision).toBe(true);
+			expect(result.isDirectCollision).toBe(false);
+			expect(result.deficitMinutes).toBe(10);
+		});
+
+		it("detects direct collision when next appointment starts before session ends", () => {
+			const startIso = "2026-10-20T10:00:00";
+			const nextStartIso = "2026-10-20T10:45:00"; // 15 min before session ends
+			const result = checkBufferCollision(startIso, 60, 15, nextStartIso);
+
+			expect(result.hasCollision).toBe(true);
+			expect(result.isDirectCollision).toBe(true);
+			expect(result.deficitMinutes).toBe(30); // 15 min session + 15 min buffer
+		});
 	});
 });
