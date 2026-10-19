@@ -1,16 +1,33 @@
 import { fetchAllBookings, retryCalendarSync } from "../api";
 import type { Booking } from "../types";
-import { calculateInterval, formatCurrency, formatDateTime } from "../utils";
+import {
+	calculateInterval,
+	checkBufferCollision,
+	formatCurrency,
+	formatDateTime,
+	formatTimeOnly,
+	isSameDay,
+	isThisWeek,
+	isToday,
+	isTomorrow,
+} from "../utils";
 import {
 	renderBookingStatusBadge,
 	renderCalendarSyncBadge,
 	renderPaymentStatusBadge,
 } from "./StatusBadge";
+import { showToast } from "./Toast";
+
+type AgendaDateFilter = "TODAY" | "TOMORROW" | "THIS_WEEK" | "ALL" | "CUSTOM";
 
 export function renderDailyAgenda(
 	container: HTMLElement,
 	onStateChange: () => void,
 ): void {
+	let activeFilter: AgendaDateFilter = "TODAY";
+	let customDateStr: string = "";
+	let cachedBookings: Booking[] = [];
+
 	container.innerHTML = `
 		<div class="view-header">
 			<div>
@@ -24,6 +41,37 @@ export function renderDailyAgenda(
 			</div>
 		</div>
 
+		<!-- Date Navigation & Filter Bar -->
+		<div class="agenda-nav-bar">
+			<div class="date-filter-group" role="tablist" aria-label="Filtro de fecha para la agenda">
+				<button type="button" class="btn btn-filter-pill active" data-filter="TODAY" role="tab" aria-selected="true">
+					Hoy
+				</button>
+				<button type="button" class="btn btn-filter-pill" data-filter="TOMORROW" role="tab" aria-selected="false">
+					Mañana
+				</button>
+				<button type="button" class="btn btn-filter-pill" data-filter="THIS_WEEK" role="tab" aria-selected="false">
+					Esta Semana
+				</button>
+				<button type="button" class="btn btn-filter-pill" data-filter="ALL" role="tab" aria-selected="false">
+					Todas
+				</button>
+			</div>
+
+			<div class="custom-date-container">
+				<label for="agenda-custom-date" class="date-picker-label">Día específico:</label>
+				<input
+					type="date"
+					id="agenda-custom-date"
+					class="form-input-date"
+					title="Elegir una fecha específica"
+					aria-label="Seleccionar fecha específica en calendario"
+				/>
+			</div>
+		</div>
+
+		<div id="agenda-filter-indicator" class="filter-indicator-banner"></div>
+
 		<div id="agenda-stats" class="stats-row"></div>
 
 		<div id="agenda-content" class="agenda-timeline">
@@ -36,9 +84,17 @@ export function renderDailyAgenda(
 
 	const contentDiv = container.querySelector<HTMLDivElement>("#agenda-content");
 	const statsDiv = container.querySelector<HTMLDivElement>("#agenda-stats");
+	const indicatorDiv = container.querySelector<HTMLDivElement>(
+		"#agenda-filter-indicator",
+	);
 	const refreshBtn = container.querySelector<HTMLButtonElement>(
 		"#refresh-agenda-btn",
 	);
+	const customDateInput = container.querySelector<HTMLInputElement>(
+		"#agenda-custom-date",
+	);
+	const filterButtons =
+		container.querySelectorAll<HTMLButtonElement>(".btn-filter-pill");
 
 	const loadData = async () => {
 		if (!contentDiv) return;
@@ -50,8 +106,7 @@ export function renderDailyAgenda(
 
 		try {
 			const bookings = await fetchAllBookings();
-			// Filter active bookings and sort chronologically
-			const activeBookings = bookings
+			cachedBookings = bookings
 				.filter(
 					(b) =>
 						b.booking_status !== "CANCELLED" && b.booking_status !== "RELEASED",
@@ -62,8 +117,7 @@ export function renderDailyAgenda(
 						new Date(b.scheduled_at).getTime(),
 				);
 
-			renderStats(activeBookings);
-			renderTimeline(activeBookings);
+			applyFilter();
 		} catch (err: unknown) {
 			if (contentDiv) {
 				contentDiv.innerHTML = `
@@ -71,10 +125,74 @@ export function renderDailyAgenda(
 						<div class="error-icon">⚠️</div>
 						<h3 class="error-title">Error al cargar la agenda</h3>
 						<p class="error-desc">${err instanceof Error ? err.message : "Error desconocido"}</p>
+						<button id="retry-agenda-load" class="btn btn-primary btn-sm">Reintentar</button>
 					</div>
 				`;
+				contentDiv
+					.querySelector("#retry-agenda-load")
+					?.addEventListener("click", () => loadData());
 			}
 		}
+	};
+
+	const filterBookings = (): Booking[] => {
+		const now = new Date();
+
+		if (activeFilter === "TODAY") {
+			return cachedBookings.filter((b) =>
+				isToday(new Date(b.scheduled_at), now),
+			);
+		}
+		if (activeFilter === "TOMORROW") {
+			return cachedBookings.filter((b) =>
+				isTomorrow(new Date(b.scheduled_at), now),
+			);
+		}
+		if (activeFilter === "THIS_WEEK") {
+			return cachedBookings.filter((b) =>
+				isThisWeek(new Date(b.scheduled_at), now),
+			);
+		}
+		if (activeFilter === "CUSTOM" && customDateStr) {
+			const [year, month, day] = customDateStr.split("-").map(Number);
+			const targetDate = new Date(year, month - 1, day);
+			return cachedBookings.filter((b) =>
+				isSameDay(new Date(b.scheduled_at), targetDate),
+			);
+		}
+		return cachedBookings;
+	};
+
+	const updateIndicator = (filteredCount: number) => {
+		if (!indicatorDiv) return;
+		let label = "";
+		if (activeFilter === "TODAY") {
+			label = `📅 Mostrando citas para: <strong>Hoy</strong> (${new Intl.DateTimeFormat("es-MX", { dateStyle: "long" }).format(new Date())})`;
+		} else if (activeFilter === "TOMORROW") {
+			const tomorrow = new Date();
+			tomorrow.setDate(tomorrow.getDate() + 1);
+			label = `📅 Mostrando citas para: <strong>Mañana</strong> (${new Intl.DateTimeFormat("es-MX", { dateStyle: "long" }).format(tomorrow)})`;
+		} else if (activeFilter === "THIS_WEEK") {
+			label = `📅 Mostrando citas para: <strong>Esta Semana</strong>`;
+		} else if (activeFilter === "CUSTOM" && customDateStr) {
+			const [year, month, day] = customDateStr.split("-").map(Number);
+			const targetDate = new Date(year, month - 1, day);
+			label = `📅 Mostrando citas para el día: <strong>${new Intl.DateTimeFormat("es-MX", { dateStyle: "long" }).format(targetDate)}</strong>`;
+		} else {
+			label = "📅 Mostrando: <strong>Todas las citas programadas</strong>";
+		}
+
+		indicatorDiv.innerHTML = `
+			<span>${label}</span>
+			<span class="indicator-count">${filteredCount} ${filteredCount === 1 ? "cita activa" : "citas activas"}</span>
+		`;
+	};
+
+	const applyFilter = () => {
+		const filtered = filterBookings();
+		updateIndicator(filtered.length);
+		renderStats(filtered);
+		renderTimeline(filtered);
 	};
 
 	const renderStats = (bookings: Booking[]) => {
@@ -94,7 +212,7 @@ export function renderDailyAgenda(
 
 		statsDiv.innerHTML = `
 			<div class="stat-card">
-				<span class="stat-label">Citas Programadas</span>
+				<span class="stat-label">Citas en Periodo</span>
 				<span class="stat-number">${total}</span>
 			</div>
 			<div class="stat-card">
@@ -119,8 +237,8 @@ export function renderDailyAgenda(
 			contentDiv.innerHTML = `
 				<div class="card empty-state">
 					<div class="empty-icon">📅</div>
-					<h3 class="empty-title">Agenda libre</h3>
-					<p class="empty-desc">No hay citas activas programadas en este momento.</p>
+					<h3 class="empty-title">Agenda libre en este periodo</h3>
+					<p class="empty-desc">No hay citas activas programadas para el filtro seleccionado. Puedes cambiar de fecha o ver "Todas las Citas".</p>
 				</div>
 			`;
 			return;
@@ -140,11 +258,45 @@ export function renderDailyAgenda(
 						let collisionNotice = "";
 						if (idx < bookings.length - 1) {
 							const nextBooking = bookings[idx + 1];
-							const nextStart = new Date(nextBooking.scheduled_at);
-							if (nextStart < interval.bufferEnd) {
+							const collision = checkBufferCollision(
+								b.scheduled_at,
+								b.duration_minutes || 60,
+								b.buffer_minutes || 15,
+								nextBooking.scheduled_at,
+							);
+
+							if (collision.hasCollision) {
+								const nextStartStr = formatTimeOnly(nextBooking.scheduled_at);
 								collisionNotice = `
-									<div class="collision-alert">
-										⚠️ ADVERTENCIA: La siguiente cita (${nextBooking.booking_code}) inicia a las ${interval.endStr}, invadiendo el buffer de preparación.
+									<div class="collision-alert ${collision.isDirectCollision ? "collision-critical" : "collision-warning"}" role="alert">
+										<div class="collision-header">
+											<span class="collision-icon">${collision.isDirectCollision ? "🛑" : "⚠️"}</span>
+											<span class="collision-title font-bold">
+												${collision.isDirectCollision ? "Colisión Directa entre Sesiones" : "Conflicto de Buffer Protegido"}
+											</span>
+											<span class="collision-deficit-pill">-${collision.deficitMinutes} min de holgura</span>
+										</div>
+										<div class="collision-markers">
+											<div class="marker-chip">
+												<span class="marker-chip-label">Término cita actual:</span>
+												<span class="marker-chip-time font-mono">${interval.endStr}</span>
+											</div>
+											<div class="marker-chip marker-buffer">
+												<span class="marker-chip-label">Buffer requerido hasta:</span>
+												<span class="marker-chip-time font-mono">${interval.bufferEndStr}</span>
+											</div>
+											<div class="marker-chip marker-conflict">
+												<span class="marker-chip-label">Inicio siguiente (${nextBooking.booking_code}):</span>
+												<span class="marker-chip-time font-mono font-bold">${nextStartStr}</span>
+											</div>
+										</div>
+										<p class="collision-explainer">
+											${
+												collision.isDirectCollision
+													? `La cita <strong>${nextBooking.booking_code}</strong> inicia antes del término de la sesión actual.`
+													: `La cita <strong>${nextBooking.booking_code}</strong> invade el buffer de 15 minutos de descanso y preparación.`
+											}
+										</p>
 									</div>
 								`;
 							}
@@ -207,20 +359,65 @@ export function renderDailyAgenda(
 			btn.addEventListener("click", async () => {
 				const id = btn.getAttribute("data-booking-id");
 				if (!id) return;
+				const origText = btn.textContent;
 				btn.textContent = "⏳...";
 				try {
 					await retryCalendarSync(id);
+					showToast(
+						"✓ Sincronización exitosa con Google Calendar",
+						"success",
+						4000,
+					);
 					loadData();
 					onStateChange();
 				} catch (err: unknown) {
-					alert(
-						err instanceof Error ? err.message : "Error al reintentar sync",
+					showToast(
+						err instanceof Error
+							? err.message
+							: "Error al reintentar sincronización",
+						"error",
+						5000,
 					);
-					btn.textContent = "↻";
+					btn.textContent = origText;
 				}
 			});
 		});
 	};
+
+	// Event Handlers for Filter Buttons
+	filterButtons.forEach((btn) => {
+		btn.addEventListener("click", () => {
+			const filter = btn.getAttribute("data-filter") as AgendaDateFilter;
+			if (!filter) return;
+
+			activeFilter = filter;
+			if (customDateInput) customDateInput.value = "";
+			customDateStr = "";
+
+			filterButtons.forEach((b) => {
+				const isCurrent = b === btn;
+				b.classList.toggle("active", isCurrent);
+				b.setAttribute("aria-selected", isCurrent ? "true" : "false");
+			});
+
+			applyFilter();
+		});
+	});
+
+	// Event Handler for Custom Date Input
+	customDateInput?.addEventListener("change", () => {
+		if (customDateInput.value) {
+			activeFilter = "CUSTOM";
+			customDateStr = customDateInput.value;
+
+			filterButtons.forEach((b) => {
+				b.classList.remove("active");
+				b.setAttribute("aria-selected", "false");
+			});
+
+			applyFilter();
+		}
+	});
 
 	refreshBtn?.addEventListener("click", () => loadData());
 	loadData();

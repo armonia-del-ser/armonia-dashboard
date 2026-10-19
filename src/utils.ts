@@ -83,3 +83,93 @@ export function getHoursRemainingBadge(hours: number): {
 		urgencyClass: "badge-info",
 	};
 }
+
+export function isSameDay(d1: Date, d2: Date): boolean {
+	return (
+		d1.getFullYear() === d2.getFullYear() &&
+		d1.getMonth() === d2.getMonth() &&
+		d1.getDate() === d2.getDate()
+	);
+}
+
+export function isToday(date: Date, refDate: Date = new Date()): boolean {
+	return isSameDay(date, refDate);
+}
+
+export function isTomorrow(date: Date, refDate: Date = new Date()): boolean {
+	const tomorrow = new Date(
+		refDate.getFullYear(),
+		refDate.getMonth(),
+		refDate.getDate() + 1,
+	);
+	return isSameDay(date, tomorrow);
+}
+
+export function isThisWeek(date: Date, refDate: Date = new Date()): boolean {
+	const day = refDate.getDay();
+	// Week starts on Monday: (day + 6) % 7 gives 0 for Monday, 6 for Sunday
+	const diffToMonday = (day + 6) % 7;
+	const startOfWeek = new Date(
+		refDate.getFullYear(),
+		refDate.getMonth(),
+		refDate.getDate() - diffToMonday,
+		0,
+		0,
+		0,
+		0,
+	);
+	const endOfWeek = new Date(
+		startOfWeek.getTime() + 7 * 24 * 60 * 60 * 1000 - 1,
+	);
+	return date >= startOfWeek && date <= endOfWeek;
+}
+
+export function formatDateInput(date: Date): string {
+	const y = date.getFullYear();
+	const m = String(date.getMonth() + 1).padStart(2, "0");
+	const d = String(date.getDate()).padStart(2, "0");
+	return `${y}-${m}-${d}`;
+}
+
+export interface CollisionResult {
+	hasCollision: boolean;
+	isDirectCollision: boolean;
+	isBufferCollision: boolean;
+	deficitMinutes: number;
+}
+
+export function checkBufferCollision(
+	currentStartIso: string,
+	currentDurationMinutes: number,
+	currentBufferMinutes: number,
+	nextStartIso: string,
+): CollisionResult {
+	const currentStart = new Date(currentStartIso);
+	const currentEnd = new Date(
+		currentStart.getTime() + currentDurationMinutes * 60 * 1000,
+	);
+	const currentBufferEnd = new Date(
+		currentEnd.getTime() + currentBufferMinutes * 60 * 1000,
+	);
+	const nextStart = new Date(nextStartIso);
+
+	if (nextStart >= currentBufferEnd) {
+		return {
+			hasCollision: false,
+			isDirectCollision: false,
+			isBufferCollision: false,
+			deficitMinutes: 0,
+		};
+	}
+
+	const isDirectCollision = nextStart < currentEnd;
+	const deficitMs = currentBufferEnd.getTime() - nextStart.getTime();
+	const deficitMinutes = Math.round(deficitMs / (60 * 1000));
+
+	return {
+		hasCollision: true,
+		isDirectCollision,
+		isBufferCollision: !isDirectCollision,
+		deficitMinutes,
+	};
+}
