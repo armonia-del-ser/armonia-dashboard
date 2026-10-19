@@ -1,7 +1,16 @@
 import type {
+	AdminPrincipal,
 	Booking,
+	BookingCompletePayload,
+	BookingCreatePayload,
+	BookingReschedulePayload,
+	Client,
+	Client360,
+	ClientUpdatePayload,
+	PackageRecord,
 	PaymentAcknowledgmentPayload,
 	PaymentRecord,
+	Service,
 } from "./types";
 
 const API_BASE_URL =
@@ -126,6 +135,152 @@ export async function retryCalendarSync(bookingId: string): Promise<Booking> {
 		throw new Error(
 			errData.detail ||
 				`Error al sincronizar calendario: ${res.status} ${res.statusText}`,
+		);
+	}
+	return res.json();
+}
+
+export async function fetchCurrentAdmin(): Promise<AdminPrincipal> {
+	const res = await fetch(`${API_BASE_URL}/auth/me`, {
+		headers: getAuthHeaders(),
+	});
+	if (!res.ok) {
+		const errData = await res.json().catch(() => ({}));
+		throw new Error(
+			errData.detail ||
+				`Error al consultar identidad de operador: ${res.status} ${res.statusText}`,
+		);
+	}
+	return res.json();
+}
+
+export async function fetchServices(activeOnly = true): Promise<Service[]> {
+	const res = await fetch(
+		`${API_BASE_URL}/services?active_only=${activeOnly ? "true" : "false"}`,
+		{
+			headers: getAuthHeaders(),
+		},
+	);
+	if (!res.ok) {
+		throw new Error(
+			`Error al obtener catálogo de servicios: ${res.status} ${res.statusText}`,
+		);
+	}
+	return res.json();
+}
+
+export async function searchClients(search?: string): Promise<Client[]> {
+	const query = search ? `?search=${encodeURIComponent(search.trim())}` : "";
+	const res = await fetch(`${API_BASE_URL}/clients${query}`, {
+		headers: getAuthHeaders(),
+	});
+	if (!res.ok) {
+		throw new Error(
+			`Error al buscar clientes: ${res.status} ${res.statusText}`,
+		);
+	}
+	return res.json();
+}
+
+export async function fetchClient360(clientId: string): Promise<Client360> {
+	const res = await fetch(`${API_BASE_URL}/clients/${clientId}`, {
+		headers: getAuthHeaders(),
+	});
+	if (!res.ok) {
+		const errData = await res.json().catch(() => ({}));
+		throw new Error(
+			errData.detail ||
+				`Error al obtener perfil de cliente: ${res.status} ${res.statusText}`,
+		);
+	}
+	return res.json();
+}
+
+export async function updateClient(
+	clientId: string,
+	payload: ClientUpdatePayload,
+): Promise<Client> {
+	const res = await fetch(`${API_BASE_URL}/clients/${clientId}`, {
+		method: "PATCH",
+		headers: getAuthHeaders(),
+		body: JSON.stringify(payload),
+	});
+	if (!res.ok) {
+		const errData = await res.json().catch(() => ({}));
+		throw new Error(
+			errData.detail ||
+				`Error al actualizar datos de cliente: ${res.status} ${res.statusText}`,
+		);
+	}
+	return res.json();
+}
+
+export async function createBooking(
+	payload: BookingCreatePayload,
+): Promise<Booking> {
+	const res = await fetch(`${API_BASE_URL}/bookings`, {
+		method: "POST",
+		headers: getAuthHeaders(),
+		body: JSON.stringify(payload),
+	});
+	if (!res.ok) {
+		const errData = await res.json().catch(() => ({}));
+		throw new Error(
+			errData.detail ||
+				`Error al agendar cita: ${res.status} ${res.statusText}`,
+		);
+	}
+	return res.json();
+}
+
+export async function rescheduleBooking(
+	bookingId: string,
+	payload: BookingReschedulePayload,
+): Promise<Booking> {
+	const res = await fetch(`${API_BASE_URL}/bookings/${bookingId}/reschedule`, {
+		method: "POST",
+		headers: getAuthHeaders(),
+		body: JSON.stringify(payload),
+	});
+	if (!res.ok) {
+		const errData = await res.json().catch(() => ({}));
+		throw new Error(
+			errData.detail ||
+				`Error al reagendar cita: ${res.status} ${res.statusText}`,
+		);
+	}
+	return res.json();
+}
+
+export async function completeBooking(
+	bookingId: string,
+	payload?: BookingCompletePayload,
+): Promise<Booking> {
+	const res = await fetch(`${API_BASE_URL}/bookings/${bookingId}/complete`, {
+		method: "POST",
+		headers: getAuthHeaders(),
+		body: JSON.stringify(payload || {}),
+	});
+	if (!res.ok) {
+		const errData = await res.json().catch(() => ({}));
+		throw new Error(
+			errData.detail ||
+				`Error al concluir cita: ${res.status} ${res.statusText}`,
+		);
+	}
+	return res.json();
+}
+
+export async function fetchPackages(
+	clientId?: string,
+): Promise<PackageRecord[]> {
+	const query = clientId ? `?client_id=${encodeURIComponent(clientId)}` : "";
+	const res = await fetch(`${API_BASE_URL}/packages${query}`, {
+		headers: getAuthHeaders(),
+	});
+	if (!res.ok) {
+		throw new Error(
+			`Error al obtener paquetes: ${res.status} ${res.statusText}`,
 		);
 	}
 	return res.json();

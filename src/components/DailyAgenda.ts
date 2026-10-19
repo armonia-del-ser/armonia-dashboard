@@ -1,9 +1,15 @@
-import { fetchAllBookings, retryCalendarSync } from "../api";
+import {
+	completeBooking,
+	fetchAllBookings,
+	rescheduleBooking,
+	retryCalendarSync,
+} from "../api";
 import type { Booking } from "../types";
 import {
 	calculateInterval,
 	checkBufferCollision,
 	formatCurrency,
+	formatDateInput,
 	formatDateTime,
 	formatTimeOnly,
 	isSameDay,
@@ -11,6 +17,7 @@ import {
 	isToday,
 	isTomorrow,
 } from "../utils";
+import { showConfirmModal } from "./MicroModal";
 import {
 	renderBookingStatusBadge,
 	renderCalendarSyncBadge,
@@ -345,6 +352,31 @@ export function renderDailyAgenda(
 										<span class="buffer-hint">Tiempo no agendable protegido por el backend.</span>
 									</div>
 
+									${
+										b.booking_status === "RESERVED"
+											? `
+										<div class="agenda-card-actions">
+											<button
+												type="button"
+												class="btn btn-secondary btn-sm btn-reschedule-booking"
+												data-booking-id="${b.id}"
+												title="Mover cita a otro horario o día"
+											>
+												<span>🗓️ Mover Cita</span>
+											</button>
+											<button
+												type="button"
+												class="btn btn-outline-success btn-sm btn-complete-booking"
+												data-booking-id="${b.id}"
+												title="Marcar consulta como concluida"
+											>
+												<span>✓ Concluir Cita</span>
+											</button>
+										</div>
+									`
+											: ""
+									}
+
 									${collisionNotice}
 								</div>
 							</div>
@@ -353,6 +385,72 @@ export function renderDailyAgenda(
 					.join("")}
 			</div>
 		`;
+
+		// Attach 'Mover Cita' handlers
+		contentDiv.querySelectorAll(".btn-reschedule-booking").forEach((btn) => {
+			btn.addEventListener("click", () => {
+				const id = btn.getAttribute("data-booking-id");
+				const booking = bookings.find((b) => b.id === id);
+				if (!booking) return;
+
+				openRescheduleModal({
+					booking,
+					onSuccess: (updated) => {
+						showToast(
+							`Cita reagendada para ${formatDateTime(updated.scheduled_at)}`,
+							"success",
+							5000,
+							{ folio: updated.booking_code },
+						);
+						loadData();
+						onStateChange();
+					},
+				});
+			});
+		});
+
+		// Attach 'Concluir Cita' handlers
+		contentDiv.querySelectorAll(".btn-complete-booking").forEach((btn) => {
+			btn.addEventListener("click", () => {
+				const id = btn.getAttribute("data-booking-id");
+				const booking = bookings.find((b) => b.id === id);
+				if (!booking) return;
+
+				showConfirmModal({
+					title: "¿Concluir consulta?",
+					kicker: "Finalización de Sesión",
+					message: `¿Deseas marcar la consulta de <strong>${booking.client_name || "Cliente"}</strong> (${booking.booking_code}) como concluida? Se registrará la asistencia y el estado cambiará a CONCLUIDA.`,
+					bookingContext: {
+						bookingCode: booking.booking_code,
+						clientName: booking.client_name,
+						serviceName: booking.service_name,
+						scheduledAtFormatted: formatDateTime(booking.scheduled_at),
+					},
+					withReasonInput: true,
+					reasonLabel:
+						"Notas clínicas u observaciones de la sesión (opcional):",
+					defaultReason: "",
+					reasonPlaceholder:
+						"Ej. Se completó terapia de sonido; paciente reporta relajación profunda.",
+					confirmText: "✓ Sí, Concluir Cita",
+					cancelText: "Volver",
+					isDanger: false,
+					onConfirm: async (notes) => {
+						await completeBooking(booking.id, {
+							notes: notes || undefined,
+						});
+						showToast(
+							`Cita ${booking.booking_code} marcada como Concluida`,
+							"success",
+							5000,
+							{ folio: booking.booking_code },
+						);
+						loadData();
+						onStateChange();
+					},
+				});
+			});
+		});
 
 		// Attach retry calendar sync buttons
 		contentDiv.querySelectorAll(".btn-retry-gcal").forEach((btn) => {
@@ -421,4 +519,185 @@ export function renderDailyAgenda(
 
 	refreshBtn?.addEventListener("click", () => loadData());
 	loadData();
+}
+
+interface RescheduleModalOptions {
+	booking: Booking;
+	onSuccess: (updated: Booking) => void;
+}
+
+function openRescheduleModal(options: RescheduleModalOptions): void {
+	const { booking, onSuccess } = options;
+	const existing = document.getElementById("reschedule-modal-backdrop");
+	if (existing) existing.remove();
+
+	const backdrop = document.createElement("div");
+	backdrop.id = "reschedule-modal-backdrop";
+	backdrop.className = "modal-backdrop";
+
+	const currentDt = new Date(booking.scheduled_at);
+	const defaultDate = formatDateInput(currentDt);
+	const hours = String(currentDt.getHours()).padStart(2, "0");
+	const mins = String(currentDt.getMinutes()).padStart(2, "0");
+	const defaultTime = `${hours}:${mins}`;
+
+	backdrop.innerHTML = `
+		<div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="reschedule-modal-title">
+			<div class="modal-header">
+				<div>
+					<span class="modal-kicker">Reagendación de Consulta</span>
+					<h3 id="reschedule-modal-title" class="modal-title">Mover Cita</h3>
+				</div>
+				<button type="button" class="modal-close-btn" id="reschedule-modal-close" aria-label="Cerrar modal">&times;</button>
+			</div>
+
+			<div class="modal-body">
+				<div class="summary-box">
+					<div class="summary-row">
+						<span class="summary-label">Folio:</span>
+						<span class="summary-value font-mono font-bold">${booking.booking_code}</span>
+					</div>
+					<div class="summary-row">
+						<span class="summary-label">Paciente:</span>
+						<span class="summary-value font-semibold">${booking.client_name || "Cliente"}</span>
+					</div>
+					<div class="summary-row">
+						<span class="summary-label">Servicio:</span>
+						<span class="summary-value">${booking.service_name || "Consulta"}</span>
+					</div>
+					<div class="summary-row">
+						<span class="summary-label">Horario actual:</span>
+						<span class="summary-value font-medium">${formatDateTime(booking.scheduled_at)}</span>
+					</div>
+				</div>
+
+				<form id="reschedule-form" class="modal-form-content mt-3">
+					<div class="form-group">
+						<label class="form-label font-semibold">Nuevo Horario Propuesto:</label>
+						<div class="datetime-grid">
+							<div class="form-subgroup">
+								<label for="reschedule-date" class="form-sublabel">Nueva Fecha:</label>
+								<input
+									type="date"
+									id="reschedule-date"
+									class="form-input"
+									value="${defaultDate}"
+									required
+								/>
+							</div>
+							<div class="form-subgroup">
+								<label for="reschedule-time" class="form-sublabel">Nueva Hora:</label>
+								<input
+									type="time"
+									id="reschedule-time"
+									class="form-input"
+									value="${defaultTime}"
+									step="900"
+									required
+								/>
+							</div>
+						</div>
+					</div>
+
+					<div class="form-group">
+						<label for="reschedule-notes" class="form-label font-semibold">
+							Motivo de Reagendación (opcional):
+						</label>
+						<textarea
+							id="reschedule-notes"
+							class="form-textarea"
+							rows="2"
+							placeholder="Ej. Solicitado por el consultante..."
+						></textarea>
+					</div>
+
+					<div id="reschedule-error" class="modal-error-box hidden" role="alert"></div>
+
+					<div class="modal-actions">
+						<button type="button" id="reschedule-cancel-btn" class="btn btn-secondary">
+							Cancelar
+						</button>
+						<button type="submit" id="reschedule-submit-btn" class="btn btn-primary">
+							Confirmar Nuevo Horario
+						</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	`;
+
+	document.body.appendChild(backdrop);
+
+	const close = () => {
+		backdrop.remove();
+		document.removeEventListener("keydown", handleKeyDown);
+	};
+
+	const handleKeyDown = (e: KeyboardEvent) => {
+		if (e.key === "Escape") close();
+	};
+	document.addEventListener("keydown", handleKeyDown);
+
+	backdrop
+		.querySelector("#reschedule-modal-close")
+		?.addEventListener("click", () => close());
+	backdrop
+		.querySelector("#reschedule-cancel-btn")
+		?.addEventListener("click", () => close());
+	backdrop.addEventListener("click", (e) => {
+		if (e.target === backdrop) close();
+	});
+
+	const form = backdrop.querySelector<HTMLFormElement>("#reschedule-form");
+	const dateInput =
+		backdrop.querySelector<HTMLInputElement>("#reschedule-date");
+	const timeInput =
+		backdrop.querySelector<HTMLInputElement>("#reschedule-time");
+	const notesInput =
+		backdrop.querySelector<HTMLTextAreaElement>("#reschedule-notes");
+	const submitBtn = backdrop.querySelector<HTMLButtonElement>(
+		"#reschedule-submit-btn",
+	);
+	const errorBox = backdrop.querySelector<HTMLDivElement>("#reschedule-error");
+
+	form?.addEventListener("submit", async (e) => {
+		e.preventDefault();
+		if (!submitBtn || !errorBox) return;
+
+		const dVal = dateInput?.value;
+		const tVal = timeInput?.value;
+		const notes = notesInput?.value.trim() || undefined;
+
+		if (!dVal || !tVal) {
+			errorBox.textContent = "Por favor selecciona la nueva fecha y hora.";
+			errorBox.classList.remove("hidden");
+			return;
+		}
+
+		const newDt = new Date(`${dVal}T${tVal}:00`);
+		if (Number.isNaN(newDt.getTime())) {
+			errorBox.textContent = "Fecha u hora inválida.";
+			errorBox.classList.remove("hidden");
+			return;
+		}
+
+		submitBtn.disabled = true;
+		submitBtn.textContent = "Reagendando...";
+		errorBox.classList.add("hidden");
+
+		try {
+			const updated = await rescheduleBooking(booking.id, {
+				new_scheduled_at: newDt.toISOString(),
+				notes,
+			});
+			close();
+			onSuccess(updated);
+		} catch (err: unknown) {
+			submitBtn.disabled = false;
+			submitBtn.textContent = "Confirmar Nuevo Horario";
+			errorBox.textContent =
+				err instanceof Error ? err.message : "Error al reagendar la consulta.";
+			errorBox.classList.remove("hidden");
+		}
+	});
 }

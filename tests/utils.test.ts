@@ -2,9 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
 	calculateInterval,
 	checkBufferCollision,
+	debounce,
 	formatCurrency,
 	formatDateInput,
+	formatMexicanPhone,
+	getCleanDigitsPhone,
 	getHoursRemainingBadge,
+	getRoleBadge,
 	isSameDay,
 	isThisWeek,
 	isToday,
@@ -100,6 +104,67 @@ describe("Frontend Utilities", () => {
 			expect(result.hasCollision).toBe(true);
 			expect(result.isDirectCollision).toBe(true);
 			expect(result.deficitMinutes).toBe(30); // 15 min session + 15 min buffer
+		});
+	});
+
+	describe("Phone and WhatsApp Utilities", () => {
+		it("formats 10-digit national number to Mexican international format (+52)", () => {
+			expect(formatMexicanPhone("5512345678")).toBe("+52 55 1234 5678");
+			expect(formatMexicanPhone("55-1234-5678")).toBe("+52 55 1234 5678");
+			expect(formatMexicanPhone("(55) 1234 5678")).toBe("+52 55 1234 5678");
+		});
+
+		it("formats 12-digit number with 52 prefix correctly", () => {
+			expect(formatMexicanPhone("525512345678")).toBe("+52 55 1234 5678");
+			expect(formatMexicanPhone("+525512345678")).toBe("+52 55 1234 5678");
+		});
+
+		it("returns empty string on empty input", () => {
+			expect(formatMexicanPhone("")).toBe("");
+			expect(formatMexicanPhone("   ")).toBe("");
+		});
+
+		it("cleans phone digits for wa.me links", () => {
+			expect(getCleanDigitsPhone("5512345678")).toBe("525512345678");
+			expect(getCleanDigitsPhone("+52 55 1234 5678")).toBe("525512345678");
+			expect(getCleanDigitsPhone("525512345678")).toBe("525512345678");
+		});
+	});
+
+	describe("Operator Role Badges", () => {
+		it("maps OWNER to Titular with role-owner class", () => {
+			const badge = getRoleBadge("OWNER");
+			expect(badge.label).toBe("Titular");
+			expect(badge.roleClass).toBe("role-owner");
+		});
+
+		it("maps ASSISTANT to Asistente with role-assistant class", () => {
+			const badge = getRoleBadge("ASSISTANT");
+			expect(badge.label).toBe("Asistente");
+			expect(badge.roleClass).toBe("role-assistant");
+		});
+
+		it("falls back gracefully for unknown roles", () => {
+			const badge = getRoleBadge("UNKNOWN");
+			expect(badge.label).toBe("UNKNOWN");
+			expect(badge.roleClass).toBe("role-fallback");
+		});
+	});
+
+	describe("Debounce Utility", () => {
+		it("debounces calls within timeout", async () => {
+			let counter = 0;
+			const fn = debounce(() => {
+				counter++;
+			}, 50);
+
+			fn();
+			fn();
+			fn();
+			expect(counter).toBe(0);
+
+			await new Promise((resolve) => setTimeout(resolve, 80));
+			expect(counter).toBe(1);
 		});
 	});
 });

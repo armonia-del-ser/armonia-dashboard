@@ -173,3 +173,53 @@ export function checkBufferCollision(
 		deficitMinutes,
 	};
 }
+
+export function formatMexicanPhone(input: string): string {
+	const trimmed = input.trim();
+	if (!trimmed) return "";
+	// Strip all non-digit characters
+	const digits = trimmed.replace(/\D/g, "");
+	// If 10 digits (Mexican national format, e.g. 5512345678)
+	if (digits.length === 10) {
+		return `+52 ${digits.slice(0, 2)} ${digits.slice(2, 6)} ${digits.slice(6)}`;
+	}
+	// If 12 digits starting with 52
+	if (digits.length === 12 && digits.startsWith("52")) {
+		const national = digits.slice(2);
+		return `+52 ${national.slice(0, 2)} ${national.slice(2, 6)} ${national.slice(6)}`;
+	}
+	// Otherwise return input as-is or cleaned
+	return trimmed;
+}
+
+export function getCleanDigitsPhone(phone: string): string {
+	const digits = phone.replace(/\D/g, "");
+	if (digits.length === 10) return `52${digits}`;
+	return digits;
+}
+
+export function getRoleBadge(role: "OWNER" | "ASSISTANT" | string): {
+	label: string;
+	roleClass: string;
+} {
+	if (role === "OWNER") {
+		return { label: "Titular", roleClass: "role-owner" };
+	}
+	if (role === "ASSISTANT") {
+		return { label: "Asistente", roleClass: "role-assistant" };
+	}
+	return { label: role || "Operador", roleClass: "role-fallback" };
+}
+
+export function debounce<Args extends unknown[]>(
+	fn: (...args: Args) => void,
+	delayMs = 250,
+): (...args: Args) => void {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	return (...args: Args) => {
+		if (timer) clearTimeout(timer);
+		timer = setTimeout(() => {
+			fn(...args);
+		}, delayMs);
+	};
+}
