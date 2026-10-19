@@ -109,15 +109,95 @@ body {
 	margin-left: 8px;
 }
 
-.operator-badge {
+.header-actions {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+
+.btn-new-booking {
+	min-height: 44px;
+	padding: 8px 16px;
+	font-weight: 600;
+	border-radius: var(--radius-md);
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
+	box-shadow: var(--shadow-sm);
+	transition: all 0.15s ease;
+}
+
+.btn-new-booking:hover {
+	transform: translateY(-1px);
+	box-shadow: var(--shadow-md);
+}
+
+.operator-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
 	font-size: 13px;
-	color: var(--color-text-muted);
+	color: var(--color-text-main);
 	background: var(--color-surface);
 	padding: 6px 12px;
 	border-radius: var(--radius-md);
+	border: 1px solid var(--color-border);
+	min-height: 44px;
+}
+
+.operator-badge-loading {
+	color: var(--color-text-muted);
+}
+
+.status-dot-pulse {
+	animation: pulse-dot 1.5s infinite ease-in-out;
+}
+
+@keyframes pulse-dot {
+	0%,
+	100% {
+		opacity: 0.4;
+		transform: scale(0.9);
+	}
+	50% {
+		opacity: 1;
+		transform: scale(1.1);
+	}
+}
+
+.status-dot-online {
+	background-color: var(--color-success);
+}
+
+.status-dot-offline {
+	background-color: var(--color-warning);
+}
+
+.operator-role-pill {
+	font-size: 11px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	padding: 2px 8px;
+	border-radius: 999px;
+}
+
+.role-owner {
+	background: var(--color-gold-light);
+	color: var(--color-gold);
+	border: 1px solid rgba(184, 134, 11, 0.3);
+}
+
+.role-assistant {
+	background: var(--color-sage-light);
+	color: var(--color-sage);
+	border: 1px solid rgba(45, 90, 70, 0.3);
+}
+
+.role-fallback {
+	background: var(--color-surface-soft);
+	color: var(--color-text-muted);
 	border: 1px solid var(--color-border);
 }
 
@@ -1374,6 +1454,339 @@ body {
 	font-size: 13px;
 	line-height: 1.4;
 	margin-top: 2px;
+}
+
+/* ==========================================================================
+   Intake Modal & Autocomplete Combobox
+   ========================================================================== */
+.modal-card-lg {
+	max-width: 620px;
+}
+
+.client-combobox-group {
+	position: relative;
+}
+
+.combobox-label-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 6px;
+}
+
+.client-type-badge {
+	font-size: 11px;
+	font-weight: 700;
+	padding: 2px 8px;
+	border-radius: 999px;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.badge-new {
+	background: var(--color-gold-light);
+	color: var(--color-gold);
+	border: 1px solid rgba(184, 134, 11, 0.25);
+}
+
+.badge-existing {
+	background: var(--color-success-light);
+	color: var(--color-success);
+	border: 1px solid rgba(30, 126, 78, 0.25);
+}
+
+.combobox-wrapper {
+	position: relative;
+}
+
+.combobox-input-container {
+	position: relative;
+	display: flex;
+	align-items: center;
+}
+
+.combobox-icon {
+	position: absolute;
+	left: 12px;
+	color: var(--color-text-muted);
+	pointer-events: none;
+	font-size: 14px;
+}
+
+.combobox-input {
+	padding-left: 36px;
+	padding-right: 36px;
+}
+
+.btn-clear-input {
+	position: absolute;
+	right: 8px;
+	background: none;
+	border: none;
+	font-size: 18px;
+	color: var(--color-text-muted);
+	cursor: pointer;
+	padding: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 36px;
+	min-height: 36px;
+	border-radius: 50%;
+}
+
+.btn-clear-input:hover {
+	color: var(--color-text-main);
+	background: var(--color-surface-soft);
+}
+
+.combobox-dropdown {
+	position: absolute;
+	top: 100%;
+	left: 0;
+	right: 0;
+	margin-top: 4px;
+	background: var(--color-surface);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-md);
+	box-shadow: var(--shadow-lg);
+	max-height: 220px;
+	overflow-y: auto;
+	z-index: 100;
+}
+
+.combobox-item {
+	padding: 10px 14px;
+	cursor: pointer;
+	border-bottom: 1px solid var(--color-border);
+	transition: background 0.15s ease;
+}
+
+.combobox-item:last-child {
+	border-bottom: none;
+}
+
+.combobox-item:hover,
+.combobox-item:focus {
+	background: var(--color-sage-light);
+}
+
+.combobox-meta {
+	display: flex;
+	gap: 12px;
+	margin-top: 2px;
+}
+
+.combobox-empty {
+	padding: 12px 14px;
+	font-size: 13px;
+	color: var(--color-text-muted);
+}
+
+.client-fields-grid {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 10px;
+}
+
+@media (min-width: 580px) {
+	.client-fields-grid {
+		grid-template-columns: 1fr 1fr;
+	}
+}
+
+.datetime-grid {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 10px;
+}
+
+@media (min-width: 580px) {
+	.datetime-grid {
+		grid-template-columns: 1fr 1fr;
+	}
+}
+
+.form-subgroup {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.form-sublabel {
+	font-size: 12px;
+	font-weight: 500;
+	color: var(--color-text-muted);
+}
+
+.service-preview-hint {
+	background: var(--color-sage-light);
+	color: var(--color-sage-dark);
+	padding: 6px 10px;
+	border-radius: var(--radius-sm);
+	margin-top: 6px;
+	border: 1px solid rgba(45, 90, 70, 0.15);
+	line-height: 1.4;
+}
+
+/* ==========================================================================
+   Agenda Card Lifecycle Actions (Mover & Concluir)
+   ========================================================================== */
+.agenda-card-actions {
+	display: flex;
+	gap: 8px;
+	margin-top: 12px;
+	padding-top: 10px;
+	border-top: 1px dashed var(--color-border);
+	flex-wrap: wrap;
+}
+
+.btn-outline-success {
+	background: transparent;
+	color: var(--color-success);
+	border: 1px solid var(--color-success);
+}
+
+.btn-outline-success:hover {
+	background: var(--color-success-light);
+	border-color: var(--color-success);
+}
+
+/* ==========================================================================
+   Client Directory View
+   ========================================================================== */
+.directory-search-bar {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 16px;
+	margin-bottom: 20px;
+	flex-wrap: wrap;
+}
+
+.search-input-group {
+	position: relative;
+	flex: 1;
+	min-width: 260px;
+	display: flex;
+	align-items: center;
+}
+
+.directory-search-input {
+	padding-left: 36px;
+	padding-right: 36px;
+	min-height: 44px;
+}
+
+.search-icon {
+	position: absolute;
+	left: 12px;
+	font-size: 14px;
+	color: var(--color-text-muted);
+	pointer-events: none;
+}
+
+.clients-counter-pill {
+	font-weight: 500;
+	color: var(--color-text-muted);
+}
+
+.clients-grid {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 16px;
+}
+
+@media (min-width: 768px) {
+	.clients-grid {
+		grid-template-columns: 1fr 1fr;
+	}
+}
+
+.client-card {
+	background: var(--color-surface);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-md);
+	padding: 18px;
+	box-shadow: var(--shadow-sm);
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.client-card-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	gap: 12px;
+}
+
+.client-card-name {
+	font-size: 17px;
+	font-weight: 600;
+	color: var(--color-sage-dark);
+}
+
+.client-registered-date {
+	display: block;
+	margin-top: 2px;
+}
+
+.client-card-body {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.client-contact-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	flex-wrap: wrap;
+}
+
+.client-email-badge {
+	color: var(--color-text-muted);
+}
+
+.packages-tags-container {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.package-pill {
+	display: inline-block;
+	background: var(--color-gold-light);
+	color: var(--color-gold);
+	border: 1px solid rgba(184, 134, 11, 0.3);
+	font-size: 12px;
+	font-weight: 600;
+	padding: 3px 8px;
+	border-radius: var(--radius-sm);
+}
+
+.client-notes-box {
+	background: var(--color-surface-soft);
+	padding: 8px 12px;
+	border-radius: var(--radius-sm);
+	border-left: 3px solid var(--color-sage);
+}
+
+.notes-kicker {
+	color: var(--color-sage-dark);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	display: block;
+}
+
+.notes-content {
+	color: var(--color-text-main);
+	line-height: 1.4;
+}
+
+.client-notes-empty {
+	font-style: italic;
 }
 
 /* ==========================================================================

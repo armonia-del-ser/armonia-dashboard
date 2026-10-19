@@ -72,3 +72,90 @@ export interface PaymentRecord {
 	notes?: string | null;
 	created_at: string;
 }
+
+export type AdminRole = "OWNER" | "ASSISTANT";
+
+export interface AdminPrincipal {
+	email: string;
+	full_name: string;
+	role: AdminRole;
+	is_active: boolean;
+	last_login_at?: string | null;
+}
+
+export type ServiceType = "INDIVIDUAL" | "GROUP";
+export type ServiceModality = "PRESENCIAL" | "ONLINE";
+
+export interface Service {
+	id: string;
+	slug: string;
+	name: string;
+	description?: string | null;
+	service_type: ServiceType;
+	modality: ServiceModality;
+	default_schedule?: string | null;
+	price_mxn: number;
+	max_capacity: number;
+	duration_minutes: number;
+	buffer_minutes: number;
+	is_active: boolean;
+}
+
+export interface Client {
+	id: string;
+	full_name: string;
+	phone_whatsapp: string;
+	email?: string | null;
+	notes?: string | null;
+	created_at: string;
+}
+
+export interface ClientUpdatePayload {
+	full_name?: string;
+	phone_whatsapp?: string;
+	email?: string | null;
+	notes?: string | null;
+}
+
+export interface PackageRecord {
+	id: string;
+	client_id: string;
+	client_name?: string | null;
+	client_phone?: string | null;
+	service_id: string;
+	service_name?: string | null;
+	total_sessions: number;
+	completed_sessions: number;
+	remaining_sessions: number;
+	price_paid_mxn: number;
+	financial_status: "PAID" | "PARTIAL" | "PENDING";
+	notes?: string | null;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface Client360 extends Client {
+	active_packages: PackageRecord[];
+	booking_history: Booking[];
+	recent_bookings: Booking[];
+}
+
+export interface BookingCreatePayload {
+	service_id: string;
+	client_name: string;
+	client_phone: string;
+	client_email?: string | null;
+	scheduled_at: string;
+	notes?: string | null;
+	package_id?: string | null;
+}
+
+export interface BookingReschedulePayload {
+	new_scheduled_at: string;
+	notes?: string | null;
+}
+
+export interface BookingCompletePayload {
+	package_id?: string | null;
+	notes?: string | null;
+}

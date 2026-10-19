@@ -1,3 +1,4 @@
+import { acknowledgePayment } from "../api";
 import type { Booking } from "../types";
 import { formatCurrency } from "../utils";
 
@@ -161,7 +162,6 @@ export function openPaymentModal(options: {
 		const notes = notesInput?.value.trim() || undefined;
 
 		try {
-			const { acknowledgePayment } = await import("../api");
 			await acknowledgePayment({
 				booking_id: booking.id,
 				amount_mxn: amount,

@@ -1,10 +1,13 @@
 import "./style.css";
-import { fetchFollowUpQueue } from "./api";
+import { fetchCurrentAdmin, fetchFollowUpQueue } from "./api";
 import { renderAllBookings } from "./components/AllBookings";
+import { renderClientDirectory } from "./components/ClientDirectory";
 import { renderDailyAgenda } from "./components/DailyAgenda";
 import { renderFollowUpQueue } from "./components/FollowUpQueue";
+import { openBookingIntakeModal } from "./components/IntakeModal";
+import { getRoleBadge } from "./utils";
 
-type TabId = "queue" | "agenda" | "all";
+type TabId = "queue" | "agenda" | "clients" | "all";
 
 class OperatorDashboardApp {
 	private activeTab: TabId = "queue";
@@ -22,10 +25,26 @@ class OperatorDashboardApp {
 	private async init(): Promise<void> {
 		this.renderShell();
 		this.bindEvents();
-		await this.refreshTabBadge();
-		const hash = window.location.hash.replace("#", "") as TabId;
-		const initialTab = hash === "agenda" || hash === "all" ? hash : "queue";
-		this.switchTab(initialTab);
+		await Promise.allSettled([
+			this.loadOperatorIdentity(),
+			this.refreshTabBadge(),
+		]);
+		const hash = window.location.hash.replace("#", "") as TabId | "nueva-cita";
+		if (hash === "nueva-cita") {
+			this.switchTab("agenda");
+			openBookingIntakeModal({
+				onSuccess: async () => {
+					await this.refreshTabBadge();
+					this.switchTab(this.activeTab);
+				},
+			});
+		} else {
+			const initialTab =
+				hash === "agenda" || hash === "clients" || hash === "all"
+					? hash
+					: "queue";
+			this.switchTab(initialTab);
+		}
 	}
 
 	private renderShell(): void {
@@ -39,10 +58,22 @@ class OperatorDashboardApp {
 					</div>
 					<span class="brand-badge">Operador</span>
 				</div>
-				<div class="operator-profile">
-					<div class="operator-badge">
-						<span class="status-dot"></span>
-						<span>Jasmin & Asistente</span>
+
+				<div class="header-actions">
+					<button
+						id="global-new-booking-btn"
+						class="btn btn-primary btn-new-booking"
+						type="button"
+						title="Registrar una nueva reservación de consulta"
+					>
+						<span>＋ Nueva Cita</span>
+					</button>
+
+					<div id="operator-profile" class="operator-profile" aria-live="polite">
+						<div class="operator-badge operator-badge-loading">
+							<span class="status-dot status-dot-pulse"></span>
+							<span class="operator-name-text">Cargando operador...</span>
+						</div>
 					</div>
 				</div>
 			</header>
@@ -55,6 +86,9 @@ class OperatorDashboardApp {
 				</button>
 				<button class="nav-tab" data-tab="agenda" role="tab" aria-selected="false">
 					<span>Agenda del Día (Buffers)</span>
+				</button>
+				<button class="nav-tab" data-tab="clients" role="tab" aria-selected="false">
+					<span>Clientes</span>
 				</button>
 				<button class="nav-tab" data-tab="all" role="tab" aria-selected="false">
 					<span>Todas las Citas</span>
@@ -75,6 +109,10 @@ class OperatorDashboardApp {
 					<span class="mobile-nav-icon" aria-hidden="true">📅</span>
 					<span class="mobile-nav-label">Agenda</span>
 				</button>
+				<button class="mobile-nav-item" data-tab="clients" role="tab" aria-selected="false">
+					<span class="mobile-nav-icon" aria-hidden="true">👥</span>
+					<span class="mobile-nav-label">Clientes</span>
+				</button>
 				<button class="mobile-nav-item" data-tab="all" role="tab" aria-selected="false">
 					<span class="mobile-nav-icon" aria-hidden="true">📋</span>
 					<span class="mobile-nav-label">Historial</span>
@@ -83,7 +121,52 @@ class OperatorDashboardApp {
 		`;
 	}
 
+	private async loadOperatorIdentity(): Promise<void> {
+		const profileEl =
+			this.container.querySelector<HTMLElement>("#operator-profile");
+		if (!profileEl) return;
+
+		try {
+			const admin = await fetchCurrentAdmin();
+			const roleInfo = getRoleBadge(admin.role);
+
+			profileEl.innerHTML = `
+				<div class="operator-badge operator-badge-authenticated" title="Sesión activa: ${admin.email}">
+					<span class="status-dot status-dot-online"></span>
+					<span class="operator-name font-medium">${admin.full_name}</span>
+					<span class="operator-role-pill ${roleInfo.roleClass}">
+						${roleInfo.label}
+					</span>
+				</div>
+			`;
+		} catch {
+			// Graceful fallback if unauthorized or loading error
+			profileEl.innerHTML = `
+				<div class="operator-badge operator-badge-fallback" title="Sesión local o sin conexión">
+					<span class="status-dot status-dot-offline"></span>
+					<span class="operator-name">Jasmin & Asistente</span>
+					<span class="operator-role-pill role-fallback">Local</span>
+				</div>
+			`;
+		}
+	}
+
 	private bindEvents(): void {
+		// New Booking Button
+		const newBookingBtn = this.container.querySelector<HTMLButtonElement>(
+			"#global-new-booking-btn",
+		);
+		newBookingBtn?.addEventListener("click", () => {
+			openBookingIntakeModal({
+				onSuccess: async () => {
+					await this.refreshTabBadge();
+					// Refresh current view
+					this.switchTab(this.activeTab);
+				},
+			});
+		});
+
+		// Tab Switching Buttons
 		const allTabButtons =
 			this.container.querySelectorAll<HTMLButtonElement>("[data-tab]");
 		allTabButtons.forEach((btn) => {
@@ -95,9 +178,15 @@ class OperatorDashboardApp {
 			});
 		});
 
+		// Hash routing
 		window.addEventListener("hashchange", () => {
 			const hash = window.location.hash.replace("#", "") as TabId;
-			if (hash === "queue" || hash === "agenda" || hash === "all") {
+			if (
+				hash === "queue" ||
+				hash === "agenda" ||
+				hash === "clients" ||
+				hash === "all"
+			) {
 				if (this.activeTab !== hash) {
 					this.switchTab(hash);
 				}
@@ -130,6 +219,8 @@ class OperatorDashboardApp {
 			renderFollowUpQueue(contentEl, onStateChange);
 		} else if (tab === "agenda") {
 			renderDailyAgenda(contentEl, onStateChange);
+		} else if (tab === "clients") {
+			renderClientDirectory(contentEl, onStateChange);
 		} else if (tab === "all") {
 			renderAllBookings(contentEl);
 		}
