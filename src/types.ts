@@ -159,3 +159,53 @@ export interface BookingCompletePayload {
 	package_id?: string | null;
 	notes?: string | null;
 }
+
+export interface RosterAttendee {
+	booking_id: string;
+	booking_code: string;
+	client_id: string;
+	client_name: string;
+	client_phone: string;
+	client_email?: string | null;
+	booking_status: BookingStatus | string;
+	payment_arrangement: PaymentArrangement | string;
+	payment_status: PaymentStatus | string;
+	amount_mxn: number;
+	attended: boolean;
+}
+
+export interface RosterSession {
+	service_id: string;
+	service_name: string;
+	scheduled_at: string;
+	max_capacity: number;
+	occupied_count: number;
+	attended_count: number;
+	attendees: RosterAttendee[];
+}
+
+export interface QuickCheckinBookingPayload {
+	booking_id: string;
+	paid_cash?: boolean;
+	notes?: string | null;
+}
+
+export interface QuickCheckinWalkInPayload {
+	service_id: string;
+	scheduled_at: string;
+	client_name: string;
+	client_phone: string;
+	client_email?: string | null;
+	paid_cash?: boolean;
+	notes?: string | null;
+}
+
+export type QuickCheckinPayload =
+	| QuickCheckinBookingPayload
+	| QuickCheckinWalkInPayload;
+
+export interface QuickCheckinResponse {
+	walk_in: boolean;
+	attendee: RosterAttendee;
+	payment_id?: string | null;
+}
