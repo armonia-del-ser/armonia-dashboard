@@ -1895,3 +1895,439 @@ body {
 		grid-template-columns: repeat(2, 1fr);
 	}
 }
+
+/* ==========================================================================
+   Workshop Roster Quick Check-in (#rosters)
+   ========================================================================== */
+
+.roster-nav-bar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 20px;
+}
+
+.roster-content-area {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+}
+
+/* Skeleton Loading State */
+.roster-skeleton-wrapper {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.skeleton-card {
+	background: var(--color-surface);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-md);
+	padding: 20px;
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.skeleton-line {
+	background: linear-gradient(
+		90deg,
+		var(--color-surface-soft) 25%,
+		#ebe7df 50%,
+		var(--color-surface-soft) 75%
+	);
+	background-size: 200% 100%;
+	animation: skeleton-pulse 1.5s ease-in-out infinite;
+	border-radius: var(--radius-sm);
+}
+
+@keyframes skeleton-pulse {
+	0% {
+		background-position: 200% 0;
+	}
+	100% {
+		background-position: -200% 0;
+	}
+}
+
+.skeleton-title {
+	width: 45%;
+	height: 24px;
+}
+
+.skeleton-meta {
+	width: 25%;
+	height: 18px;
+}
+
+.skeleton-table {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	margin-top: 8px;
+}
+
+.skeleton-row {
+	width: 100%;
+	height: 48px;
+}
+
+/* Empty & Error States */
+.roster-empty-state {
+	background: var(--color-surface);
+	border: 1px dashed var(--color-border);
+	border-radius: var(--radius-md);
+	padding: 48px 24px;
+	text-align: center;
+}
+
+.roster-error-state {
+	background: var(--color-surface);
+	border: 1px solid var(--color-danger-light);
+	border-radius: var(--radius-md);
+	padding: 24px;
+}
+
+.error-box-card {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	flex-wrap: wrap;
+}
+
+.error-icon {
+	font-size: 28px;
+}
+
+.error-content {
+	flex: 1;
+	min-width: 220px;
+}
+
+.error-banner-message {
+	color: var(--color-danger);
+	font-size: 14px;
+	margin-top: 4px;
+}
+
+/* Session Card */
+.roster-session-card {
+	background: var(--color-surface);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-md);
+	box-shadow: var(--shadow-sm);
+	overflow: hidden;
+	transition: box-shadow 0.2s ease;
+}
+
+.roster-session-card:hover {
+	box-shadow: var(--shadow-md);
+}
+
+.session-card-header {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	align-items: center;
+	padding: 16px 20px;
+	background: var(--color-surface);
+	border-bottom: 1px solid var(--color-border);
+	gap: 12px;
+}
+
+.session-title-block {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+
+.session-time-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 13px;
+	font-weight: 700;
+	padding: 4px 10px;
+	background: var(--color-sage-light);
+	color: var(--color-sage-dark);
+	border-radius: 9999px;
+	border: 1px solid rgba(45, 90, 70, 0.2);
+}
+
+.session-title {
+	font-family: var(--font-serif);
+	font-size: 19px;
+	font-weight: 600;
+	color: var(--color-text-main);
+}
+
+.session-header-actions {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	flex-wrap: wrap;
+}
+
+.session-capacity-counter {
+	font-size: 13px;
+	padding: 6px 12px;
+	background: var(--color-surface-soft);
+	color: var(--color-text-main);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-sm);
+}
+
+/* Attendees Table / Rows */
+.session-attendees-container {
+	padding: 0;
+}
+
+.attendees-empty-notice {
+	padding: 32px 20px;
+	text-align: center;
+}
+
+.roster-attendees-table {
+	display: flex;
+	flex-direction: column;
+}
+
+.roster-attendee-row {
+	display: grid;
+	grid-template-columns: 2fr 2fr 1.6fr 2.4fr;
+	align-items: center;
+	padding: 14px 20px;
+	border-bottom: 1px solid var(--color-border);
+	gap: 16px;
+	transition: background-color 0.15s ease;
+}
+
+.roster-attendee-row:last-child {
+	border-bottom: none;
+}
+
+.roster-attendee-row:hover {
+	background-color: #faf9f6;
+}
+
+.roster-attendee-row.row-attended {
+	background-color: rgba(30, 126, 78, 0.04);
+}
+
+.attendee-col-client {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.attendee-name {
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--color-text-main);
+}
+
+.attendee-code {
+	font-size: 11px;
+	color: var(--color-text-muted);
+}
+
+.attendee-col-phone {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.attendee-phone-text {
+	font-size: 13px;
+	color: var(--color-text-main);
+}
+
+.btn-wa-link {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	color: #128c7e;
+	text-decoration: none;
+	font-size: 11px;
+	font-weight: 500;
+	min-height: 24px;
+}
+
+.btn-wa-link:hover {
+	text-decoration: underline;
+}
+
+.attendee-col-badges {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.attendee-col-actions {
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+}
+
+.checkin-action-group {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+}
+
+.cash-toggle-label {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	cursor: pointer;
+	user-select: none;
+	padding: 4px 0;
+	color: var(--color-text-main);
+}
+
+.cash-checkbox {
+	width: 18px;
+	height: 18px;
+	accent-color: var(--color-sage);
+	cursor: pointer;
+}
+
+/* Status Badges Mapping per Section 2.2 */
+.status-roster-registered {
+	background: #f1f5f9;
+	color: #475569;
+	border: 1px solid #cbd5e1;
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.03em;
+}
+
+.status-roster-attended {
+	background: var(--color-success-light);
+	color: var(--color-success);
+	border: 1px solid rgba(30, 126, 78, 0.25);
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.03em;
+}
+
+.status-roster-paid {
+	background: var(--color-success-light);
+	color: var(--color-success);
+	border: 1px solid rgba(30, 126, 78, 0.25);
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.03em;
+}
+
+.status-roster-pending {
+	background: var(--color-warning-light);
+	color: var(--color-warning);
+	border: 1px solid rgba(217, 119, 6, 0.3);
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.03em;
+}
+
+/* Touch Targets & Keyboard Accessibility */
+.btn-checkin,
+.btn-walkin,
+.btn-filter-pill,
+.toast-close-btn {
+	min-height: 44px;
+	min-width: 44px;
+}
+
+.cash-toggle-label,
+.form-checkbox-label {
+	min-height: 44px;
+}
+
+button:focus-visible,
+input:focus-visible,
+a:focus-visible {
+	outline: 2px solid var(--color-sage);
+	outline-offset: 2px;
+}
+
+/* Responsive Overrides (Mobile 375px) */
+@media (max-width: 768px) {
+	.roster-nav-bar {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.session-card-header {
+		flex-direction: column;
+		align-items: stretch;
+		gap: 12px;
+		padding: 14px;
+	}
+
+	.session-header-actions {
+		flex-direction: column;
+		align-items: stretch;
+		gap: 8px;
+	}
+
+	.session-capacity-counter {
+		text-align: center;
+	}
+
+	.btn-walkin {
+		width: 100%;
+		justify-content: center;
+	}
+
+	.roster-attendee-row {
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		gap: 10px;
+		padding: 14px;
+	}
+
+	.attendee-col-client {
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.attendee-col-phone {
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.attendee-col-badges {
+		justify-content: flex-start;
+		gap: 8px;
+	}
+
+	.attendee-col-actions {
+		width: 100%;
+		margin-top: 4px;
+	}
+
+	.checkin-action-group {
+		width: 100%;
+		flex-direction: column;
+		align-items: stretch;
+		gap: 8px;
+	}
+
+	.cash-toggle-label {
+		justify-content: flex-start;
+	}
+
+	.btn-checkin {
+		width: 100%;
+		justify-content: center;
+	}
+}
