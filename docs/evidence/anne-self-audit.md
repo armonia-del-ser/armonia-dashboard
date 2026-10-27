@@ -128,16 +128,17 @@ The implementation strictly respects the Scope Containment Invariant:
 
 ---
 
-## 6. Addendum: Post-Review Revision (Targeted 1-Commit Fix)
+## 6. Addendum: Post-Review Revision & Multi-Attendee 409 Server Reconciliation
 
-Following Project Owner review of PR #9, two targeted ergonomic and security enhancements were implemented:
+Following Project Owner review and QA verification of PR #9, targeted enhancements were implemented:
 1. **Finding A: HTML Sanitization (`escapeHtml`)**:
    - Introduced and exported `escapeHtml(str: string): string` in `src/components/WorkshopRoster.ts` (matching the pattern in `ClientDirectory.ts` and `IntakeModal.ts`).
    - Sanitized all dynamic string interpolations (`attendee.client_name`, `attendee.client_phone`, `attendee.booking_code`, `session.service_name`, date strings, etc.) across visible text nodes and attribute values (`aria-label`, `title`, `href`, `data-booking-id`).
-2. **Finding B: Out-of-Band 409 Capacity Counter Synchronization**:
-   - Implemented `reconcileAlreadyCheckedInState()` in `src/components/WorkshopRoster.ts`.
-   - When an `ALREADY_CHECKED_IN` 409 conflict occurs for an attendee who was locally unrecorded (`!attendee.attended`), `session.attended_count` is now incremented by 1 and `updateCapacityDisplay(session, sessionIdx)` is invoked, ensuring header capacity counters remain strictly synchronized even during out-of-band check-ins across devices.
+2. **Finding B & Case 2B: Authoritative Server Reconciliation on 409 Conflict**:
+   - Implemented `reconcileSessionsWithServer()` in `src/components/WorkshopRoster.ts`.
+   - When an `ALREADY_CHECKED_IN` 409 conflict occurs, the client now performs an authoritative refresh from `fetchRosters({ date_from, date_to })`, reconciling all sessions and attendees against server state and re-rendering the view.
+   - This ensures that if multiple attendees were checked in out-of-band across devices (Case 2B), the capacity counter immediately reflects the exact server count (e.g. `2 presentes`) and all checked-in attendees render with `ASISTIÓ`. If the refresh fetch fails, it gracefully falls back to local row reconciliation via `reconcileAlreadyCheckedInState()`.
 3. **Verification**:
-   - Added unit test suites in `tests/roster.test.ts` validating HTML escaping (XSS vectors, attributes, plain strings) and 409 state reconciliation (incrementing when locally unrecorded, idempotent when already recorded).
-   - Test suite passes 100%: 33/33 tests passing (17 utils + 16 roster).
+   - Added unit test suites in `tests/roster.test.ts` validating HTML escaping (XSS vectors, attributes, plain strings), local state reconciliation, and authoritative multi-attendee out-of-band reconciliation (Case 2B).
+   - Test suite passes 100%: 34/34 tests passing (17 utils + 17 roster).
 

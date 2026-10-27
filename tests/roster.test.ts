@@ -5,6 +5,7 @@ import {
 	escapeHtml,
 	formatRosterCapacity,
 	reconcileAlreadyCheckedInState,
+	reconcileSessionsWithServer,
 	renderAttendanceStatusBadge,
 	renderPaymentStatusPill,
 } from "../src/components/WorkshopRoster";
@@ -168,6 +169,100 @@ describe("Workshop Roster Utilities", () => {
 			expect(incremented).toBe(false);
 			expect(session.attended_count).toBe(1); // Unchanged
 			expect(attendee.attended).toBe(true);
+		});
+
+		it("reconciles multiple out-of-band check-ins authoritatively from server response (Case 2B)", () => {
+			const staleLocalSession: RosterSession = {
+				service_id: "srv-123",
+				service_name: "Círculo de Cacao",
+				scheduled_at: "2026-10-26T18:00:00Z",
+				max_capacity: 15,
+				occupied_count: 2,
+				attended_count: 0,
+				attendees: [
+					{
+						booking_id: "bk-1001",
+						booking_code: "ADS-1001",
+						client_id: "cl-1",
+						client_name: "Elena Gómez",
+						client_phone: "525511112222",
+						booking_status: "RESERVED",
+						payment_arrangement: "PREPAID_DEFAULT",
+						payment_status: "ACKNOWLEDGED",
+						amount_mxn: 350,
+						attended: false,
+					},
+					{
+						booking_id: "bk-1002",
+						booking_code: "ADS-1002",
+						client_id: "cl-2",
+						client_name: "Carlos Méndez",
+						client_phone: "525533334444",
+						booking_status: "RESERVED",
+						payment_arrangement: "PREPAID_DEFAULT",
+						payment_status: "AWAITING_ACKNOWLEDGMENT",
+						amount_mxn: 350,
+						attended: false,
+					},
+				],
+			};
+
+			const authoritativeServerSession: RosterSession = {
+				service_id: "srv-123",
+				service_name: "Círculo de Cacao",
+				scheduled_at: "2026-10-26T18:00:00Z",
+				max_capacity: 15,
+				occupied_count: 2,
+				attended_count: 2,
+				attendees: [
+					{
+						booking_id: "bk-1001",
+						booking_code: "ADS-1001",
+						client_id: "cl-1",
+						client_name: "Elena Gómez",
+						client_phone: "525511112222",
+						booking_status: "COMPLETED",
+						payment_arrangement: "PREPAID_DEFAULT",
+						payment_status: "ACKNOWLEDGED",
+						amount_mxn: 350,
+						attended: true,
+					},
+					{
+						booking_id: "bk-1002",
+						booking_code: "ADS-1002",
+						client_id: "cl-2",
+						client_name: "Carlos Méndez",
+						client_phone: "525533334444",
+						booking_status: "COMPLETED",
+						payment_arrangement: "PREPAID_DEFAULT",
+						payment_status: "ACKNOWLEDGED",
+						amount_mxn: 350,
+						attended: true,
+					},
+				],
+			};
+
+			const reconciled = reconcileSessionsWithServer(
+				[staleLocalSession],
+				[authoritativeServerSession],
+			);
+
+			expect(reconciled).toHaveLength(1);
+			expect(reconciled[0].occupied_count).toBe(2);
+			expect(reconciled[0].attended_count).toBe(2);
+
+			const elena = reconciled[0].attendees.find(
+				(a) => a.booking_code === "ADS-1001",
+			);
+			const carlos = reconciled[0].attendees.find(
+				(a) => a.booking_code === "ADS-1002",
+			);
+
+			expect(elena?.attended).toBe(true);
+			expect(elena?.booking_status).toBe("COMPLETED");
+
+			expect(carlos?.attended).toBe(true);
+			expect(carlos?.booking_status).toBe("COMPLETED");
 		});
 	});
 });

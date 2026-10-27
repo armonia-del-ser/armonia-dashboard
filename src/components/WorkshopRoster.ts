@@ -131,6 +131,40 @@ export function reconcileAlreadyCheckedInState(
 }
 
 /**
+ * Reconcile local session state with authoritative server sessions.
+ * Matches sessions by service_id and scheduled_at to update counts and attendee records.
+ */
+export function reconcileSessionsWithServer(
+	currentSessions: RosterSession[],
+	freshSessions: RosterSession[],
+): RosterSession[] {
+	if (!freshSessions || freshSessions.length === 0) {
+		return currentSessions;
+	}
+	return freshSessions.map((fresh) => {
+		const existing = currentSessions.find(
+			(curr) =>
+				curr.service_id === fresh.service_id &&
+				curr.scheduled_at === fresh.scheduled_at,
+		);
+		if (!existing) return fresh;
+		return {
+			...existing,
+			...fresh,
+			attendees: fresh.attendees.map((freshAtt) => {
+				const existingAtt = existing.attendees.find(
+					(a) => a.booking_id === freshAtt.booking_id,
+				);
+				return {
+					...existingAtt,
+					...freshAtt,
+				};
+			}),
+		};
+	});
+}
+
+/**
  * Disambiguate HTTP 409 Conflict based on response detail
  */
 export function disambiguate409Error(detail?: string): ConflictType {
@@ -561,12 +595,28 @@ export function renderWorkshopRoster(
 			const conflictType = disambiguate409Error(detail);
 
 			if (conflictType === "ALREADY_CHECKED_IN") {
-				// 409 Case A: Reconcile row to ASISTIÓ, disable button, informative toast
-				const incremented = reconcileAlreadyCheckedInState(session, attendee);
-				if (incremented) {
-					updateCapacityDisplay(session, sessionIdx);
+				// 409 Case A: Authoritative server state reconciliation
+				try {
+					const freshSessions = await fetchRosters({
+						date_from: selectedDate,
+						date_to: selectedDate,
+					});
+					cachedSessions = reconcileSessionsWithServer(
+						cachedSessions,
+						freshSessions,
+					);
+					if (contentEl) {
+						renderSessions(contentEl, cachedSessions);
+					}
+				} catch {
+					// Fallback to local row reconciliation if refresh fetch fails
+					const incremented = reconcileAlreadyCheckedInState(session, attendee);
+					if (incremented) {
+						updateCapacityDisplay(session, sessionIdx);
+					}
+					updateRowAttendanceState(rowEl, attendee);
 				}
-				updateRowAttendanceState(rowEl, attendee);
+
 				showToast("El asistente ya contaba con asistencia registrada", "info");
 				onStateChange?.();
 			} else {
