@@ -2,7 +2,7 @@
 
 > **Author:** Anne Droid <anne-droid@roadtotech.me>  
 > **Role:** Senior Frontend Engineer & UX Specialist  
-> **Worktree:** `/home/kiskaadee/Projects/active/armonia/armonia-dashboard-anne-roster`  
+> **Worktree:** `/home/kiskaadee/Projects/active/armonia/.worktrees/armonia-dashboard-anne-roster`  
 > **Branch:** `feat/anne/workshop-roster`  
 > **Date:** 2026-10-26  
 > **Target Specification:** `docs/pilot/SPEC-WORKSHOP-ROSTER.md`  
