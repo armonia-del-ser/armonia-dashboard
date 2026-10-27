@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
 	buildWhatsAppUrl,
 	disambiguate409Error,
+	escapeHtml,
 	formatRosterCapacity,
+	reconcileAlreadyCheckedInState,
 	renderAttendanceStatusBadge,
 	renderPaymentStatusPill,
 } from "../src/components/WorkshopRoster";
+import type { RosterAttendee, RosterSession } from "../src/types";
 
 describe("Workshop Roster Utilities", () => {
 	describe("Capacity Formatting", () => {
@@ -95,6 +98,76 @@ describe("Workshop Roster Utilities", () => {
 		it("falls back to UNKNOWN for other 409 or empty messages", () => {
 			expect(disambiguate409Error("Some generic conflict")).toBe("UNKNOWN");
 			expect(disambiguate409Error(undefined)).toBe("UNKNOWN");
+		});
+	});
+
+	describe("HTML Sanitization (escapeHtml)", () => {
+		it("escapes dangerous HTML characters to prevent XSS", () => {
+			expect(escapeHtml('<script>alert("xss")</script>')).toBe(
+				"&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;",
+			);
+			expect(escapeHtml("Tom & Jerry's")).toBe("Tom &amp; Jerry&#039;s");
+			expect(escapeHtml('<img src="x" onerror="alert(1)">')).toBe(
+				"&lt;img src=&quot;x&quot; onerror=&quot;alert(1)&quot;&gt;",
+			);
+		});
+
+		it("leaves strings without special characters untouched", () => {
+			expect(escapeHtml("Elena Gómez")).toBe("Elena Gómez");
+			expect(escapeHtml("ADS-1001")).toBe("ADS-1001");
+			expect(escapeHtml("+52 55 1111 2222")).toBe("+52 55 1111 2222");
+		});
+	});
+
+	describe("409 Out-of-Band Counter Reconciliation", () => {
+		function createMockSession(occupied = 2, attended = 0): RosterSession {
+			return {
+				service_id: "srv-123",
+				service_name: "Círculo de Cacao",
+				scheduled_at: "2026-10-26T18:00:00Z",
+				max_capacity: 15,
+				occupied_count: occupied,
+				attended_count: attended,
+				attendees: [],
+			};
+		}
+
+		function createMockAttendee(attended = false): RosterAttendee {
+			return {
+				booking_id: "bk-123",
+				booking_code: "ADS-1001",
+				client_id: "cl-123",
+				client_name: "Elena Gómez",
+				client_phone: "525511112222",
+				booking_status: attended ? "COMPLETED" : "RESERVED",
+				payment_arrangement: "PREPAID_DEFAULT",
+				payment_status: "ACKNOWLEDGED",
+				amount_mxn: 350,
+				attended,
+			};
+		}
+
+		it("increments attended_count and reconciles attendee when locally unrecorded", () => {
+			const session = createMockSession(2, 0);
+			const attendee = createMockAttendee(false);
+
+			const incremented = reconcileAlreadyCheckedInState(session, attendee);
+
+			expect(incremented).toBe(true);
+			expect(session.attended_count).toBe(1);
+			expect(attendee.attended).toBe(true);
+			expect(attendee.booking_status).toBe("COMPLETED");
+		});
+
+		it("does not increment attended_count if attendee was already marked attended locally", () => {
+			const session = createMockSession(2, 1);
+			const attendee = createMockAttendee(true);
+
+			const incremented = reconcileAlreadyCheckedInState(session, attendee);
+
+			expect(incremented).toBe(false);
+			expect(session.attended_count).toBe(1); // Unchanged
+			expect(attendee.attended).toBe(true);
 		});
 	});
 });

@@ -98,6 +98,39 @@ export type ConflictType =
 	| "UNKNOWN";
 
 /**
+ * Escape HTML characters to prevent XSS in template string interpolations
+ */
+export function escapeHtml(str: string): string {
+	return str
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&#039;");
+}
+
+/**
+ * Reconcile session state upon out-of-band 409 ALREADY_CHECKED_IN conflict.
+ * Ensures attendance status is COMPLETED / ASISTIÓ, and if the attendee was
+ * previously unrecorded locally, increments attended_count.
+ * Returns true if attended_count was incremented.
+ */
+export function reconcileAlreadyCheckedInState(
+	session: RosterSession,
+	attendee: RosterAttendee,
+): boolean {
+	const wasAttended =
+		attendee.attended || attendee.booking_status === "COMPLETED";
+	attendee.attended = true;
+	attendee.booking_status = "COMPLETED";
+	if (!wasAttended) {
+		session.attended_count += 1;
+		return true;
+	}
+	return false;
+}
+
+/**
  * Disambiguate HTTP 409 Conflict based on response detail
  */
 export function disambiguate409Error(detail?: string): ConflictType {
@@ -151,7 +184,7 @@ export function renderWorkshopRoster(
 					type="date"
 					id="roster-date-input"
 					class="form-input-date"
-					value="${selectedDate}"
+					value="${escapeHtml(selectedDate)}"
 					aria-label="Seleccionar fecha de talleres"
 				/>
 			</div>
@@ -247,7 +280,7 @@ export function renderWorkshopRoster(
 				<div class="empty-icon" aria-hidden="true">🪷</div>
 				<h3 class="empty-title">Sin talleres programados</h3>
 				<p class="empty-message">No hay talleres grupales programados para esta fecha.</p>
-				<p class="text-xs text-muted mt-2">Fecha seleccionada: ${dateStr}. Navega a otra fecha para consultar talleres.</p>
+				<p class="text-xs text-muted mt-2">Fecha seleccionada: ${escapeHtml(dateStr)}. Navega a otra fecha para consultar talleres.</p>
 			</div>
 		`;
 	}
@@ -296,8 +329,8 @@ export function renderWorkshopRoster(
 			card.innerHTML = `
 				<div class="session-card-header">
 					<div class="session-title-block">
-						<span class="session-time-pill" title="Horario del taller">⏰ ${timeStr} hrs</span>
-						<h3 class="session-title">${session.service_name}</h3>
+						<span class="session-time-pill" title="Horario del taller">⏰ ${escapeHtml(timeStr)} hrs</span>
+						<h3 class="session-title">${escapeHtml(session.service_name)}</h3>
 					</div>
 					<div class="session-header-actions">
 						<span class="session-capacity-counter font-mono font-medium" id="capacity-counter-${sessionIdx}">
@@ -343,6 +376,7 @@ export function renderWorkshopRoster(
 					attendee.attended || attendee.booking_status === "COMPLETED";
 				const waUrl = buildWhatsAppUrl(attendee.client_phone);
 				const formattedPhone = formatMexicanPhone(attendee.client_phone);
+				const cleanPhoneDigits = getCleanDigitsPhone(attendee.client_phone);
 
 				const attendanceBadge = renderAttendanceStatusBadge(
 					isAttended,
@@ -365,7 +399,7 @@ export function renderWorkshopRoster(
 									type="checkbox"
 									id="cash-check-${sessionIdx}-${attIdx}"
 									class="cash-checkbox"
-									data-booking-id="${attendee.booking_id}"
+									data-booking-id="${escapeHtml(attendee.booking_id)}"
 								/>
 								<span class="text-xs">Cobro en efectivo recibido</span>
 							</label>
@@ -374,7 +408,7 @@ export function renderWorkshopRoster(
 								class="btn btn-primary btn-sm btn-checkin"
 								data-session-idx="${sessionIdx}"
 								data-att-idx="${attIdx}"
-								data-booking-id="${attendee.booking_id}"
+								data-booking-id="${escapeHtml(attendee.booking_id)}"
 							>
 								Registrar Asistencia
 							</button>
@@ -389,7 +423,7 @@ export function renderWorkshopRoster(
 								class="btn btn-primary btn-sm btn-checkin"
 								data-session-idx="${sessionIdx}"
 								data-att-idx="${attIdx}"
-								data-booking-id="${attendee.booking_id}"
+								data-booking-id="${escapeHtml(attendee.booking_id)}"
 							>
 								Registrar Asistencia
 							</button>
@@ -398,24 +432,24 @@ export function renderWorkshopRoster(
 				}
 
 				return `
-					<div class="roster-attendee-row ${isAttended ? "row-attended" : ""}" data-booking-id="${attendee.booking_id}">
+					<div class="roster-attendee-row ${isAttended ? "row-attended" : ""}" data-booking-id="${escapeHtml(attendee.booking_id)}">
 						<div class="attendee-col-client">
-							<span class="attendee-name font-medium">${attendee.client_name}</span>
-							<span class="attendee-code font-mono">${attendee.booking_code}</span>
+							<span class="attendee-name font-medium">${escapeHtml(attendee.client_name)}</span>
+							<span class="attendee-code font-mono">${escapeHtml(attendee.booking_code)}</span>
 						</div>
 
 						<div class="attendee-col-phone">
-							<span class="attendee-phone-text">${formattedPhone}</span>
+							<span class="attendee-phone-text">${escapeHtml(formattedPhone)}</span>
 							<a
-								href="${waUrl}"
+								href="${escapeHtml(waUrl)}"
 								target="_blank"
 								rel="noopener noreferrer"
 								class="btn-wa-link"
 								title="Abrir chat en WhatsApp"
-								aria-label="Contactar a ${attendee.client_name} por WhatsApp"
+								aria-label="Contactar a ${escapeHtml(attendee.client_name)} por WhatsApp"
 							>
 								<span class="wa-icon" aria-hidden="true">💬</span>
-								<span class="wa-label font-mono text-xs">wa.me/${getCleanDigitsPhone(attendee.client_phone)}</span>
+								<span class="wa-label font-mono text-xs">wa.me/${escapeHtml(cleanPhoneDigits)}</span>
 							</a>
 						</div>
 
@@ -528,10 +562,13 @@ export function renderWorkshopRoster(
 
 			if (conflictType === "ALREADY_CHECKED_IN") {
 				// 409 Case A: Reconcile row to ASISTIÓ, disable button, informative toast
-				attendee.attended = true;
-				attendee.booking_status = "COMPLETED";
+				const incremented = reconcileAlreadyCheckedInState(session, attendee);
+				if (incremented) {
+					updateCapacityDisplay(session, sessionIdx);
+				}
 				updateRowAttendanceState(rowEl, attendee);
 				showToast("El asistente ya contaba con asistencia registrada", "info");
+				onStateChange?.();
 			} else {
 				// Ordinary failure / timeout
 				button.disabled = false;
@@ -613,11 +650,11 @@ export function renderWorkshopRoster(
 					<div class="summary-box">
 						<div class="summary-row">
 							<span class="summary-label">Taller:</span>
-							<span class="summary-value font-medium">${session.service_name}</span>
+							<span class="summary-value font-medium">${escapeHtml(session.service_name)}</span>
 						</div>
 						<div class="summary-row">
 							<span class="summary-label">Horario:</span>
-							<span class="summary-value font-mono font-bold">${timeStr} hrs</span>
+							<span class="summary-value font-mono font-bold">${escapeHtml(timeStr)} hrs</span>
 						</div>
 						<div class="summary-row">
 							<span class="summary-label">Capacidad Actual:</span>

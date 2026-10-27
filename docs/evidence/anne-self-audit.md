@@ -125,3 +125,19 @@ The implementation strictly respects the Scope Containment Invariant:
 
 - **Notice 1 (String Matching on HTTP 409 detail)**:  
   As anticipated in Section 2.1 of `SPEC-WORKSHOP-ROSTER.md`, disambiguating between duplicate check-in (`"This attendee has already checked in."`) and session capacity (`"El taller ha alcanzado su cupo máximo..."`) relies on substring matching on `response.detail`. This is preserved as an accepted pilot accommodation to maintain backend immutability on `armonia-api`. An M5 ticket will introduce machine-readable error codes (`error_code`).
+
+---
+
+## 6. Addendum: Post-Review Revision (Targeted 1-Commit Fix)
+
+Following Project Owner review of PR #9, two targeted ergonomic and security enhancements were implemented:
+1. **Finding A: HTML Sanitization (`escapeHtml`)**:
+   - Introduced and exported `escapeHtml(str: string): string` in `src/components/WorkshopRoster.ts` (matching the pattern in `ClientDirectory.ts` and `IntakeModal.ts`).
+   - Sanitized all dynamic string interpolations (`attendee.client_name`, `attendee.client_phone`, `attendee.booking_code`, `session.service_name`, date strings, etc.) across visible text nodes and attribute values (`aria-label`, `title`, `href`, `data-booking-id`).
+2. **Finding B: Out-of-Band 409 Capacity Counter Synchronization**:
+   - Implemented `reconcileAlreadyCheckedInState()` in `src/components/WorkshopRoster.ts`.
+   - When an `ALREADY_CHECKED_IN` 409 conflict occurs for an attendee who was locally unrecorded (`!attendee.attended`), `session.attended_count` is now incremented by 1 and `updateCapacityDisplay(session, sessionIdx)` is invoked, ensuring header capacity counters remain strictly synchronized even during out-of-band check-ins across devices.
+3. **Verification**:
+   - Added unit test suites in `tests/roster.test.ts` validating HTML escaping (XSS vectors, attributes, plain strings) and 409 state reconciliation (incrementing when locally unrecorded, idempotent when already recorded).
+   - Test suite passes 100%: 33/33 tests passing (17 utils + 16 roster).
+
