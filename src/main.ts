@@ -5,9 +5,10 @@ import { renderClientDirectory } from "./components/ClientDirectory";
 import { renderDailyAgenda } from "./components/DailyAgenda";
 import { renderFollowUpQueue } from "./components/FollowUpQueue";
 import { openBookingIntakeModal } from "./components/IntakeModal";
+import { renderWorkshopRoster } from "./components/WorkshopRoster";
 import { getRoleBadge } from "./utils";
 
-type TabId = "queue" | "agenda" | "clients" | "all";
+type TabId = "queue" | "agenda" | "clients" | "all" | "rosters";
 
 class OperatorDashboardApp {
 	private activeTab: TabId = "queue";
@@ -40,7 +41,10 @@ class OperatorDashboardApp {
 			});
 		} else {
 			const initialTab =
-				hash === "agenda" || hash === "clients" || hash === "all"
+				hash === "agenda" ||
+				hash === "clients" ||
+				hash === "all" ||
+				hash === "rosters"
 					? hash
 					: "queue";
 			this.switchTab(initialTab);
@@ -87,6 +91,9 @@ class OperatorDashboardApp {
 				<button class="nav-tab" data-tab="agenda" role="tab" aria-selected="false">
 					<span>Agenda del Día (Buffers)</span>
 				</button>
+				<button class="nav-tab" data-tab="rosters" role="tab" aria-selected="false">
+					<span>Talleres</span>
+				</button>
 				<button class="nav-tab" data-tab="clients" role="tab" aria-selected="false">
 					<span>Clientes</span>
 				</button>
@@ -108,6 +115,10 @@ class OperatorDashboardApp {
 				<button class="mobile-nav-item" data-tab="agenda" role="tab" aria-selected="false">
 					<span class="mobile-nav-icon" aria-hidden="true">📅</span>
 					<span class="mobile-nav-label">Agenda</span>
+				</button>
+				<button class="mobile-nav-item" data-tab="rosters" role="tab" aria-selected="false">
+					<span class="mobile-nav-icon" aria-hidden="true">🪷</span>
+					<span class="mobile-nav-label">Talleres</span>
 				</button>
 				<button class="mobile-nav-item" data-tab="clients" role="tab" aria-selected="false">
 					<span class="mobile-nav-icon" aria-hidden="true">👥</span>
@@ -184,6 +195,7 @@ class OperatorDashboardApp {
 			if (
 				hash === "queue" ||
 				hash === "agenda" ||
+				hash === "rosters" ||
 				hash === "clients" ||
 				hash === "all"
 			) {
@@ -219,6 +231,8 @@ class OperatorDashboardApp {
 			renderFollowUpQueue(contentEl, onStateChange);
 		} else if (tab === "agenda") {
 			renderDailyAgenda(contentEl, onStateChange);
+		} else if (tab === "rosters") {
+			renderWorkshopRoster(contentEl, onStateChange);
 		} else if (tab === "clients") {
 			renderClientDirectory(contentEl, onStateChange);
 		} else if (tab === "all") {

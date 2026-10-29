@@ -10,6 +10,9 @@ import type {
 	PackageRecord,
 	PaymentAcknowledgmentPayload,
 	PaymentRecord,
+	QuickCheckinPayload,
+	QuickCheckinResponse,
+	RosterSession,
 	Service,
 } from "./types";
 
@@ -281,6 +284,64 @@ export async function fetchPackages(
 	if (!res.ok) {
 		throw new Error(
 			`Error al obtener paquetes: ${res.status} ${res.statusText}`,
+		);
+	}
+	return res.json();
+}
+
+export class ApiError extends Error {
+	public status: number;
+	public detail?: string;
+
+	constructor(status: number, message: string, detail?: string) {
+		super(message);
+		this.name = "ApiError";
+		this.status = status;
+		this.detail = detail;
+	}
+}
+
+export async function fetchRosters(params: {
+	date_from: string;
+	date_to: string;
+	service_id?: string;
+}): Promise<RosterSession[]> {
+	const query = new URLSearchParams();
+	query.set("date_from", params.date_from);
+	query.set("date_to", params.date_to);
+	if (params.service_id) query.set("service_id", params.service_id);
+
+	const url = `${API_BASE_URL}/rosters?${query.toString()}`;
+	const res = await fetch(url, {
+		headers: getAuthHeaders(),
+	});
+	if (!res.ok) {
+		const errData = await res.json().catch(() => ({}));
+		const detail = errData.detail || `${res.status} ${res.statusText}`;
+		throw new ApiError(
+			res.status,
+			`Error al obtener talleres: ${detail}`,
+			errData.detail,
+		);
+	}
+	return res.json();
+}
+
+export async function quickCheckin(
+	payload: QuickCheckinPayload,
+): Promise<QuickCheckinResponse> {
+	const res = await fetch(`${API_BASE_URL}/rosters/quick-checkin`, {
+		method: "POST",
+		headers: getAuthHeaders(),
+		body: JSON.stringify(payload),
+	});
+	if (!res.ok) {
+		const errData = await res.json().catch(() => ({}));
+		const detail = errData.detail || `${res.status} ${res.statusText}`;
+		throw new ApiError(
+			res.status,
+			`Error al registrar asistencia: ${detail}`,
+			errData.detail,
 		);
 	}
 	return res.json();
